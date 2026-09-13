@@ -46,3 +46,4 @@ Alternatively, for manual setup:
 
 Settings are saved in `~/.config/piper-tui/config.env`.
 Voices are stored in `~/.piper/voices/`.
+ 
