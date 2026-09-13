@@ -6,6 +6,7 @@ CONFIG_FILE="$CONFIG_DIR/config.env"
 PIPER_DIR="$HOME/.piper"
 VOICES_DIR="$PIPER_DIR/voices"
 READ_SCRIPT="$PIPER_DIR/read-selection.sh"
+DESKTOP_FILE="$HOME/.local/share/applications/piper-tts.desktop"
 
 mkdir -p "$CONFIG_DIR"
 mkdir -p "$PIPER_DIR"
@@ -80,27 +81,38 @@ download_voice() {
 
 select_or_input_binding() {
     local default_val="$1"
+    local de="$2"
     
-    CHOICE_BIND=$(whiptail --title "Choix de la combinaison de touches" --menu \
-"💡 Aide syntaxe : <Primary> = Ctrl, <Super> = Touche Windows, <Shift> = Maj, <Alt> = Alt.
+    # Syntaxe spécifique selon le bureau
+    local ex_super="<Super>"
+    local ex_ctrl="<Primary>"
+    if [ "$de" = "KDE" ]; then
+        ex_super="Meta+"
+        ex_ctrl="Ctrl+"
+    elif [ "$de" = "MATE" ]; then
+        ex_super="<Mod4>"
+    fi
+    
+    CHOICE_BIND=$(whiptail --title "Combinaison de touches ($de)" --menu \
+"💡 Aide syntaxe : $ex_ctrl = Ctrl, $ex_super = Touche Windows/Super.
 Choisissez une combinaison prête à l'emploi ou saisissez-en une personnalisée :" 18 78 5 \
-        "1" "<Super><Shift>s       [ Touche Windows + Maj + S ]" \
-        "2" "<Primary><Alt>s       [ Ctrl + Alt + S ]" \
-        "3" "<Primary><Alt>l       [ Ctrl + Alt + L ]" \
-        "4" "<Primary>Escape       [ Ctrl + Échap ]" \
-        "5" "Saisie personnalisée  (Entrée manuelle avec chevrons)" 3>&1 1>&2 2>&3)
+        "1" "$ex_super${ex_ctrl/Ctrl+/}Shift+S (Super + Maj + S)" \
+        "2" "$ex_ctrl$ex_super S (Ctrl + Alt + S)" \
+        "3" "$ex_ctrl$ex_super L (Ctrl + Alt + L)" \
+        "4" "$ex_ctrl Escape (Ctrl + Échap)" \
+        "5" "Saisie personnalisée (Entrée manuelle précise)" 3>&1 1>&2 2>&3)
 
     case $CHOICE_BIND in
-        1) echo "<Super><Shift>s" ;;
-        2) echo "<Primary><Alt>s" ;;
-        3) echo "<Primary><Alt>l" ;;
-        4) echo "<Primary>Escape" ;;
+        1)
+            if [ "$de" = "KDE" ]; then echo "Meta+Shift+S"; elif [ "$de" = "MATE" ]; then echo "<Mod4><Shift>s"; else echo "<Super><Shift>s"; fi ;;
+        2)
+            if [ "$de" = "KDE" ]; then echo "Ctrl+Alt+S"; else echo "<Primary><Alt>s"; fi ;;
+        3)
+            if [ "$de" = "KDE" ]; then echo "Ctrl+Alt+L"; else echo "<Primary><Alt>l"; fi ;;
+        4)
+            if [ "$de" = "KDE" ]; then echo "Ctrl+Esc"; else echo "<Primary>Escape"; fi ;;
         5)
-            CUSTOM_INPUT=$(whiptail --title "Saisie personnalisée du raccourci" --inputbox \
-"ℹ️ Syntaxe requise par GNOME :
-- Modificateurs : <Primary> (Ctrl), <Super> (Windows), <Alt>, <Shift> (Maj)
-- Touches : Lettres minuscules (ex: s, l) ou noms officiels (ex: Escape, Return, space)
-Exemple : <Super><Shift>s ou <Primary><Alt>space" 16 75 "$default_val" 3>&1 1>&2 2>&3)
+            CUSTOM_INPUT=$(whiptail --title "Saisie personnalisée" --inputbox "Entrez votre combinaison selon la syntaxe de votre bureau :" 10 65 "$default_val" 3>&1 1>&2 2>&3)
             echo "$CUSTOM_INPUT"
             ;;
         *)
@@ -109,21 +121,14 @@ Exemple : <Super><Shift>s ou <Primary><Alt>space" 16 75 "$default_val" 3>&1 1>&2
     esac
 }
 
-manage_shortcut() {
-    if ! command -v gsettings &>/dev/null; then
-        whiptail --msgbox "gsettings n'est pas disponible sur ce système." 8 50
-        return
-    fi
+# --- FONCTIONS DE GESTION DES RACCOURCIS PAR BUREAU ---
 
-    SCHEMA="org.gnome.settings-daemon.plugins.media-keys"
-    CUSTOM_SCHEMA="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
+manage_shortcut_gsettings() {
+    local SCHEMA="$1"
+    local CUSTOM_SCHEMA="$2"
+    local LIST_KEY="$3"
     
-    if ! gsettings list-schemas | grep -q "^$SCHEMA$"; then
-        whiptail --msgbox "Environnement non supporté (seul GNOME/Zorin est supporté actuellement)." 10 60
-        return
-    fi
-
-    EXISTING=$(gsettings get $SCHEMA custom-keybindings)
+    EXISTING=$(gsettings get $SCHEMA $LIST_KEY)
     FOUND_PATH=""
     CURRENT_BINDING=""
     
@@ -131,88 +136,224 @@ manage_shortcut() {
     for p in $PATHS; do
         p_clean=$(echo "$p" | xargs)
         if [ -n "$p_clean" ]; then
-            cmd=$(gsettings get "$CUSTOM_SCHEMA:$p_clean" command 2>/dev/null | tr -d "'\"")
-            if [ "$cmd" = "$READ_SCRIPT" ]; then
+            local cmd_val=""
+            # Si le chemin commence par / on ajoute le custom_schema devant, sinon (Cinnamon) on ajoute le prefixe
+            if [[ "$p_clean" == /* ]]; then
+                cmd_val=$(gsettings get "$CUSTOM_SCHEMA:$p_clean" command 2>/dev/null | tr -d "'\"")
+            else
+                # Cinnamon
+                cmd_val=$(gsettings get "$CUSTOM_SCHEMA:/org/cinnamon/desktop/keybindings/custom-keybindings/$p_clean/" command 2>/dev/null | tr -d "'\"")
+            fi
+            
+            if [ "$cmd_val" = "$READ_SCRIPT" ]; then
                 FOUND_PATH="$p_clean"
-                CURRENT_BINDING=$(gsettings get "$CUSTOM_SCHEMA:$p_clean" binding 2>/dev/null | tr -d "'\"")
+                if [[ "$p_clean" == /* ]]; then
+                    CURRENT_BINDING=$(gsettings get "$CUSTOM_SCHEMA:$p_clean" binding 2>/dev/null | tr -d "'\"")
+                else
+                    CURRENT_BINDING=$(gsettings get "$CUSTOM_SCHEMA:/org/cinnamon/desktop/keybindings/custom-keybindings/$p_clean/" binding 2>/dev/null | tr -d "'\"")
+                fi
                 break
             fi
         fi
     done
 
     if [ -n "$FOUND_PATH" ]; then
-        ACTION=$(whiptail --title "Raccourci Clavier Global" --menu "Raccourci actif : $CURRENT_BINDING" 16 75 4 \
-            "1" "Modifier la combinaison de touches (Presets / Saisie)" \
-            "2" "Ouvrir les Paramètres Système de Zorin/GNOME (GUI)" \
-            "3" "Supprimer le raccourci global" \
-            "4" "Retour" 3>&1 1>&2 2>&3)
+        ACTION=$(whiptail --title "Raccourci Clavier Global" --menu "Raccourci actif : $CURRENT_BINDING" 15 65 3 \
+            "1" "Modifier la combinaison de touches" \
+            "2" "Ouvrir les Paramètres Système GUI" \
+            "3" "Supprimer le raccourci global" 3>&1 1>&2 2>&3)
         
         case $ACTION in
             1)
-                NEW_BINDING=$(select_or_input_binding "$CURRENT_BINDING")
+                NEW_BINDING=$(select_or_input_binding "$CURRENT_BINDING" "GNOME")
                 if [ -n "$NEW_BINDING" ]; then
-                    gsettings set "$CUSTOM_SCHEMA:$FOUND_PATH" binding "$NEW_BINDING"
-                    whiptail --msgbox "✅ Raccourci mis à jour avec succès ($NEW_BINDING) !" 8 50
+                    if [[ "$FOUND_PATH" == /* ]]; then
+                        gsettings set "$CUSTOM_SCHEMA:$FOUND_PATH" binding "$NEW_BINDING"
+                    else
+                        gsettings set "$CUSTOM_SCHEMA:/org/cinnamon/desktop/keybindings/custom-keybindings/$FOUND_PATH/" binding "$NEW_BINDING"
+                    fi
+                    whiptail --msgbox "✅ Raccourci mis à jour ($NEW_BINDING) !" 8 50
                 fi
                 ;;
             2)
-                if command -v gnome-control-center &>/dev/null; then
-                    gnome-control-center keyboard &>/dev/null &
-                    whiptail --msgbox "⚙️ L'application Paramètres > Clavier a été ouverte dans votre environnement de bureau." 9 65
-                else
-                    whiptail --msgbox "Impossible de lancer automatiquement le panneau Paramètres." 8 55
+                if command -v gnome-control-center &>/dev/null; then gnome-control-center keyboard &>/dev/null &
+                elif command -v cinnamon-settings &>/dev/null; then cinnamon-settings keyboard &>/dev/null &
+                elif command -v mate-keybinding-properties &>/dev/null; then mate-keybinding-properties &>/dev/null &
                 fi
+                whiptail --msgbox "⚙️ L'application Paramètres a été ouverte." 8 65
                 ;;
             3)
+                # Remove from list
                 NEW_LIST=$(echo "$EXISTING" | sed "s|'$FOUND_PATH', ||; s|, '$FOUND_PATH'||; s|'$FOUND_PATH'||")
                 if [ "$NEW_LIST" = "[]" ] || [ "$NEW_LIST" = "@as []" ]; then
-                    gsettings set $SCHEMA custom-keybindings "[]"
+                    gsettings set $SCHEMA $LIST_KEY "[]"
                 else
-                    gsettings set $SCHEMA custom-keybindings "$NEW_LIST"
+                    gsettings set $SCHEMA $LIST_KEY "$NEW_LIST"
                 fi
-                gsettings reset-recursively "$CUSTOM_SCHEMA:$FOUND_PATH" 2>/dev/null || true
                 whiptail --msgbox "🗑️ Raccourci supprimé avec succès !" 8 45
                 ;;
         esac
     else
-        ACTION=$(whiptail --title "Configurer Raccourci Clavier" --menu "Aucun raccourci global n'est actuellement configuré pour Piper." 16 75 3 \
-            "1" "Choisir une combinaison (Presets ou Saisie)" \
-            "2" "Ouvrir les Paramètres Système de Zorin/GNOME (GUI)" \
-            "3" "Retour" 3>&1 1>&2 2>&3)
+        ACTION=$(whiptail --title "Configurer Raccourci Clavier" --menu "Aucun raccourci configuré." 15 65 2 \
+            "1" "Choisir une combinaison" \
+            "2" "Ouvrir Paramètres GUI" 3>&1 1>&2 2>&3)
         
-        case $ACTION in
-            1)
-                BINDING=$(select_or_input_binding "<Super><Shift>s")
-                if [ -n "$BINDING" ]; then
-                    IDX=0
-                    while echo "$EXISTING" | grep -q "/custom$IDX/"; do
-                        IDX=$((IDX + 1))
-                    done
-                    NEW_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom$IDX/"
-                    
-                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" name 'Lire la sélection (Piper TTS)'
-                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" command "$READ_SCRIPT"
-                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" binding "$BINDING"
-                    
-                    if [ "$EXISTING" = "@as []" ] || [ "$EXISTING" = "[]" ]; then
-                        gsettings set $SCHEMA custom-keybindings "['$NEW_PATH']"
-                    else
-                        UPDATED=$(echo "$EXISTING" | sed "s|\]|, '$NEW_PATH']|")
-                        gsettings set $SCHEMA custom-keybindings "$UPDATED"
-                    fi
-                    
-                    whiptail --msgbox "✅ Raccourci configuré et activé avec succès ($BINDING) !" 8 55
-                fi
-                ;;
-            2)
-                if command -v gnome-control-center &>/dev/null; then
-                    gnome-control-center keyboard &>/dev/null &
-                    whiptail --msgbox "⚙️ L'application Paramètres > Clavier a été ouverte dans votre environnement de bureau.\n\nVous pouvez y ajouter un raccourci personnalisé pointant vers :\n$READ_SCRIPT" 12 70
+        if [ "$ACTION" = "1" ]; then
+            BINDING=$(select_or_input_binding "<Super><Shift>s" "GNOME")
+            if [ -n "$BINDING" ]; then
+                IDX=0
+                if [[ "$SCHEMA" == *"cinnamon"* ]]; then
+                    while echo "$EXISTING" | grep -q "'custom$IDX'"; do IDX=$((IDX + 1)); done
+                    NEW_PATH="custom$IDX"
+                    FULL_PATH="$CUSTOM_SCHEMA:/org/cinnamon/desktop/keybindings/custom-keybindings/$NEW_PATH/"
                 else
-                    whiptail --msgbox "Impossible de lancer automatiquement le panneau Paramètres." 8 55
+                    while echo "$EXISTING" | grep -q "/custom$IDX/"; do IDX=$((IDX + 1)); done
+                    NEW_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom$IDX/"
+                    if [[ "$SCHEMA" == *"mate"* ]]; then
+                        NEW_PATH="/org/mate/settings-daemon/plugins/media-keys/custom-keybindings/custom$IDX/"
+                    fi
+                    FULL_PATH="$CUSTOM_SCHEMA:$NEW_PATH"
                 fi
-                ;;
-        esac
+                
+                gsettings set "$FULL_PATH" name 'Lire la sélection (Piper TTS)'
+                gsettings set "$FULL_PATH" command "$READ_SCRIPT"
+                gsettings set "$FULL_PATH" binding "$BINDING"
+                
+                if [ "$EXISTING" = "@as []" ] || [ "$EXISTING" = "[]" ]; then
+                    gsettings set $SCHEMA $LIST_KEY "['$NEW_PATH']"
+                else
+                    UPDATED=$(echo "$EXISTING" | sed "s|\]|, '$NEW_PATH']|")
+                    gsettings set $SCHEMA $LIST_KEY "$UPDATED"
+                fi
+                whiptail --msgbox "✅ Raccourci activé ($BINDING) !" 8 55
+            fi
+        elif [ "$ACTION" = "2" ]; then
+            if command -v gnome-control-center &>/dev/null; then gnome-control-center keyboard &>/dev/null &
+            elif command -v cinnamon-settings &>/dev/null; then cinnamon-settings keyboard &>/dev/null &
+            fi
+        fi
+    fi
+}
+
+manage_shortcut_xfce() {
+    # Check if shortcut already exists
+    local existing_prop=""
+    local current_binding=""
+    for prop in $(xfconf-query -c xfce4-keyboard-shortcuts -p /commands/custom -l 2>/dev/null); do
+        val=$(xfconf-query -c xfce4-keyboard-shortcuts -p "$prop" 2>/dev/null)
+        if [ "$val" = "$READ_SCRIPT" ]; then
+            existing_prop="$prop"
+            current_binding=$(echo "$prop" | sed 's|/commands/custom/||')
+            break
+        fi
+    done
+    
+    if [ -n "$existing_prop" ]; then
+        ACTION=$(whiptail --title "Raccourci XFCE" --menu "Raccourci actif : $current_binding" 15 65 2 \
+            "1" "Supprimer le raccourci" \
+            "2" "Retour" 3>&1 1>&2 2>&3)
+        if [ "$ACTION" = "1" ]; then
+            xfconf-query -c xfce4-keyboard-shortcuts -p "$existing_prop" -r
+            whiptail --msgbox "🗑️ Raccourci supprimé avec succès !" 8 45
+        fi
+    else
+        BINDING=$(select_or_input_binding "<Super><Shift>s" "XFCE")
+        if [ -n "$BINDING" ]; then
+            xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$BINDING" -n -t string -s "$READ_SCRIPT"
+            whiptail --msgbox "✅ Raccourci activé ($BINDING) !" 8 55
+        fi
+    fi
+}
+
+manage_shortcut_kde() {
+    # Setup .desktop file required by KDE
+    mkdir -p ~/.local/share/applications
+    cat <<EOF > "$DESKTOP_FILE"
+[Desktop Entry]
+Exec=$READ_SCRIPT
+Name=Piper TTS Read Selection
+Type=Application
+EOF
+
+    local kwrite="kwriteconfig5"
+    local qdbus_cmd="qdbus"
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwrite="kwriteconfig6"
+        qdbus_cmd="qdbus6"
+    fi
+
+    # Read existing
+    # format in kglobalshortcutsrc: _launch=Meta+Shift+S,none,Piper TTS Read Selection
+    local existing=$(kreadconfig5 --file kglobalshortcutsrc --group "piper-tts.desktop" --key "_launch" 2>/dev/null || echo "")
+    
+    if [ -n "$existing" ] && [[ "$existing" != *"none,none"* ]]; then
+        local current_binding=$(echo "$existing" | cut -d',' -f1)
+        ACTION=$(whiptail --title "Raccourci KDE Plasma" --menu "Raccourci actif : $current_binding" 15 65 2 \
+            "1" "Supprimer le raccourci" \
+            "2" "Retour" 3>&1 1>&2 2>&3)
+        if [ "$ACTION" = "1" ]; then
+            $kwrite --file kglobalshortcutsrc --group "piper-tts.desktop" --key "_launch" --delete
+            $qdbus_cmd org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reparseConfiguration &>/dev/null || true
+            rm -f "$DESKTOP_FILE"
+            whiptail --msgbox "🗑️ Raccourci supprimé avec succès !" 8 45
+        fi
+    else
+        BINDING=$(select_or_input_binding "Meta+Shift+S" "KDE")
+        if [ -n "$BINDING" ]; then
+            $kwrite --file kglobalshortcutsrc --group "piper-tts.desktop" --key "_launch" "$BINDING,none,Piper TTS Read Selection"
+            $qdbus_cmd org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reparseConfiguration &>/dev/null || true
+            whiptail --msgbox "✅ Raccourci activé ($BINDING) !" 8 55
+        fi
+    fi
+}
+
+manage_shortcut_lxqt() {
+    local CONF_FILE="$HOME/.config/lxqt/globalkeyshortcuts.conf"
+    
+    if grep -q "$READ_SCRIPT" "$CONF_FILE" 2>/dev/null; then
+        ACTION=$(whiptail --title "Raccourci LXQt" --menu "Un raccourci existe dans globalkeyshortcuts.conf" 15 65 2 \
+            "1" "Supprimer le raccourci" \
+            "2" "Retour" 3>&1 1>&2 2>&3)
+        if [ "$ACTION" = "1" ]; then
+            sed -i '/\[.*Piper/,/path=/d' "$CONF_FILE" 2>/dev/null || true
+            killall lxqt-globalkeysd && lxqt-globalkeysd &
+            whiptail --msgbox "🗑️ Raccourci supprimé avec succès !" 8 45
+        fi
+    else
+        BINDING=$(whiptail --title "Raccourci LXQt" --inputbox "Entrez la combinaison (ex: Meta+Shift+S) :" 10 65 "Meta+Shift+S" 3>&1 1>&2 2>&3)
+        if [ -n "$BINDING" ]; then
+            local escaped_binding=$(echo "$BINDING" | sed 's/+/%2B/g')
+            cat <<EOF >> "$CONF_FILE"
+
+[${escaped_binding}.Piper]
+Comment=Piper TTS Read Selection
+Enabled=true
+path=$READ_SCRIPT
+EOF
+            killall lxqt-globalkeysd && lxqt-globalkeysd &
+            whiptail --msgbox "✅ Raccourci activé ($BINDING) !" 8 55
+        fi
+    fi
+}
+
+# --- DISPATCHER ---
+route_shortcut_manager() {
+    local de="${XDG_CURRENT_DESKTOP:-Unknown}"
+    
+    if [[ "$de" == *"GNOME"* ]] || [[ "$de" == *"Pantheon"* ]] || [[ "$de" == *"ubuntu"* ]]; then
+        manage_shortcut_gsettings "org.gnome.settings-daemon.plugins.media-keys" "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding" "custom-keybindings"
+    elif [[ "$de" == *"Cinnamon"* ]]; then
+        manage_shortcut_gsettings "org.cinnamon.desktop.keybindings" "org.cinnamon.desktop.keybindings.custom-keybinding" "custom-list"
+    elif [[ "$de" == *"MATE"* ]]; then
+        manage_shortcut_gsettings "org.mate.SettingsDaemon.plugins.media-keys" "org.mate.SettingsDaemon.plugins.media-keys.custom-keybinding" "custom-keybindings"
+    elif [[ "$de" == *"XFCE"* ]]; then
+        manage_shortcut_xfce
+    elif [[ "$de" == *"KDE"* ]]; then
+        manage_shortcut_kde
+    elif [[ "$de" == *"LXQt"* ]]; then
+        manage_shortcut_lxqt
+    else
+        whiptail --msgbox "Votre bureau ($de) ne dispose pas d'une API standardisée détectable par le script.\n\nConsultez le WIKI pour savoir comment ajouter manuellement le raccourci vers :\n$READ_SCRIPT" 12 70
     fi
 }
 
@@ -221,7 +362,7 @@ while true; do
         "1" "Sélectionner / Télécharger une voix" \
         "2" "Installer le moteur Piper (si manquant)" \
         "3" "Tester la voix active ($ACTIVE_VOICE)" \
-        "4" "Configurer le raccourci global (GNOME/Zorin)" \
+        "4" "Configurer le raccourci global" \
         "5" "Quitter" 3>&1 1>&2 2>&3)
 
     case $CHOICE in
@@ -237,17 +378,12 @@ while true; do
                 "Gilles" "Masculine, Basique$GILLES_STATE" 3>&1 1>&2 2>&3)
             
             case $VOICE in
-                Siwis)
-                    download_voice "Siwis (Medium)" "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx" 22050 "siwis.onnx"
-                    ;;
-                Gilles)
-                    download_voice "Gilles (Low)" "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/gilles/low/fr_FR-gilles-low.onnx" 16000 "gilles.onnx"
-                    ;;
+                Siwis) download_voice "Siwis (Medium)" "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx" 22050 "siwis.onnx" ;;
+                Gilles) download_voice "Gilles (Low)" "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/gilles/low/fr_FR-gilles-low.onnx" 16000 "gilles.onnx" ;;
             esac
             ;;
         2)
-            if [ -f "$PIPER_DIR/piper/piper" ]; then
-                whiptail --msgbox "✅ Le moteur Piper est déjà installé !" 8 45
+            if [ -f "$PIPER_DIR/piper/piper" ]; then whiptail --msgbox "✅ Le moteur Piper est déjà installé !" 8 45
             else
                 clear
                 echo "================================================="
@@ -268,7 +404,7 @@ while true; do
             fi
             ;;
         4)
-            manage_shortcut
+            route_shortcut_manager
             ;;
         5)
             clear
