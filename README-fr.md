@@ -7,14 +7,16 @@ Une interface utilisateur légère en terminal (TUI) pour gérer [Piper TTS](htt
 - Installe automatiquement le moteur Text-to-Speech Piper.
 - Parcourez, téléchargez et basculez facilement entre des modèles vocaux français de haute qualité.
 - Génère automatiquement le script `read-selection.sh` pour lire à voix haute le texte sélectionné depuis n'importe quelle application.
+- **Gestionnaire de raccourci clavier global** : Configurez, modifiez ou supprimez votre raccourci système directement depuis l'interface (GNOME, Zorin OS, Ubuntu).
 
 ## Prérequis
 - `whiptail`
 - `wget`
 - `xsel` (pour X11) ou `wl-clipboard` (pour Wayland)
 - `alsa-utils` (pour la lecture audio)
+- `gsettings` (pour l'intégration automatique sous GNOME/Zorin)
 
-## Installation
+## Installation & Utilisation
 
 ```bash
 # Cloner le dépôt (ou télécharger le script)
@@ -28,10 +30,11 @@ chmod +x piper-tui.sh
 ./piper-tui.sh
 ```
 
-## Configuration du raccourci clavier global (Manuel)
+## Configuration du raccourci clavier global
 
-Pour cette version `v0.1`, la configuration du raccourci clavier global se fait manuellement via les paramètres de votre environnement de bureau.
+Vous pouvez configurer le raccourci global directement via **l'Option 4** dans le menu du TUI.
 
+Alternativement, pour une configuration manuelle :
 1. Ouvrez les **Paramètres** de votre système > **Clavier** > **Raccourcis personnalisés**.
 2. Ajoutez un nouveau raccourci :
    - **Nom :** Lire la sélection (Piper)

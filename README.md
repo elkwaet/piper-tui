@@ -7,14 +7,16 @@ A lightweight, terminal-based User Interface (TUI) for managing [Piper TTS](http
 - Automatically installs the Piper Text-to-Speech engine.
 - Browse, download, and switch between high-quality French voice models.
 - Generates a `read-selection.sh` script to dictate selected text from any app.
+- **Global Keyboard Shortcut Manager**: Configure, update, or remove your global shortcut directly from the TUI (GNOME, Zorin OS, Ubuntu).
 
 ## Requirements
 - `whiptail`
 - `wget`
 - `xsel` (for X11) or `wl-clipboard` (for Wayland)
 - `alsa-utils` (for audio playback)
+- `gsettings` (for automated shortcut integration on GNOME/Zorin)
 
-## Installation
+## Installation & Usage
 
 ```bash
 # Clone this repository (or download the script)
@@ -28,10 +30,11 @@ chmod +x piper-tui.sh
 ./piper-tui.sh
 ```
 
-## Setup Global Keyboard Shortcut (Manual)
+## Global Keyboard Shortcut Setup
 
-For this `v0.1` release, setting up the global keyboard shortcut is done manually via your Desktop Environment settings.
+You can configure the global shortcut directly via **Option 4** in the TUI menu.
 
+Alternatively, for manual setup:
 1. Open your system **Settings** > **Keyboard** > **Custom Shortcuts**.
 2. Add a new shortcut:
    - **Name:** Read Selection (Piper)
