@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.1] - 2026-09-13
+### Added
+- Shortcut presets (`<Super><Shift>s`, `<Primary><Alt>s`, `<Primary>Escape`, etc.) in the TUI to avoid manual chevron input.
+- Detailed syntax helper box explaining GNOME modifier names (`<Primary>` = Ctrl, `<Super>` = Windows).
+- Direct shortcut action to launch the desktop GUI Settings (`gnome-control-center keyboard`).
+
 ## [v0.2.0] - 2026-09-13
 ### Added
 - Automated global keyboard shortcut manager for GNOME / Zorin OS / Ubuntu environments via `gsettings`.

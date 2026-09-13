@@ -50,7 +50,6 @@ download_voice() {
     local filename="$4"
     local local_file="$VOICES_DIR/$filename"
     
-    # Sortir de l'UI whiptail pour un téléchargement natif propre
     clear
     echo "================================================="
     echo "📥 Téléchargement de la voix : $name"
@@ -77,6 +76,37 @@ download_voice() {
     echo ""
     echo "🎉 Voix $name configurée avec succès !"
     read -p "Appuyez sur Entrée pour retourner au menu..."
+}
+
+select_or_input_binding() {
+    local default_val="$1"
+    
+    CHOICE_BIND=$(whiptail --title "Choix de la combinaison de touches" --menu \
+"💡 Aide syntaxe : <Primary> = Ctrl, <Super> = Touche Windows, <Shift> = Maj, <Alt> = Alt.
+Choisissez une combinaison prête à l'emploi ou saisissez-en une personnalisée :" 18 78 5 \
+        "1" "<Super><Shift>s       [ Touche Windows + Maj + S ]" \
+        "2" "<Primary><Alt>s       [ Ctrl + Alt + S ]" \
+        "3" "<Primary><Alt>l       [ Ctrl + Alt + L ]" \
+        "4" "<Primary>Escape       [ Ctrl + Échap ]" \
+        "5" "Saisie personnalisée  (Entrée manuelle avec chevrons)" 3>&1 1>&2 2>&3)
+
+    case $CHOICE_BIND in
+        1) echo "<Super><Shift>s" ;;
+        2) echo "<Primary><Alt>s" ;;
+        3) echo "<Primary><Alt>l" ;;
+        4) echo "<Primary>Escape" ;;
+        5)
+            CUSTOM_INPUT=$(whiptail --title "Saisie personnalisée du raccourci" --inputbox \
+"ℹ️ Syntaxe requise par GNOME :
+- Modificateurs : <Primary> (Ctrl), <Super> (Windows), <Alt>, <Shift> (Maj)
+- Touches : Lettres minuscules (ex: s, l) ou noms officiels (ex: Escape, Return, space)
+Exemple : <Super><Shift>s ou <Primary><Alt>space" 16 75 "$default_val" 3>&1 1>&2 2>&3)
+            echo "$CUSTOM_INPUT"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
 }
 
 manage_shortcut() {
@@ -111,20 +141,29 @@ manage_shortcut() {
     done
 
     if [ -n "$FOUND_PATH" ]; then
-        ACTION=$(whiptail --title "Raccourci Clavier Global" --menu "Raccourci actif : $CURRENT_BINDING" 15 65 3 \
-            "1" "Modifier la combinaison de touches" \
-            "2" "Supprimer le raccourci global" \
-            "3" "Retour" 3>&1 1>&2 2>&3)
+        ACTION=$(whiptail --title "Raccourci Clavier Global" --menu "Raccourci actif : $CURRENT_BINDING" 16 75 4 \
+            "1" "Modifier la combinaison de touches (Presets / Saisie)" \
+            "2" "Ouvrir les Paramètres Système de Zorin/GNOME (GUI)" \
+            "3" "Supprimer le raccourci global" \
+            "4" "Retour" 3>&1 1>&2 2>&3)
         
         case $ACTION in
             1)
-                NEW_BINDING=$(whiptail --title "Modifier Raccourci" --inputbox "Combinaison (ex: <Super><Shift>s, <Primary>Escape) :" 10 65 "$CURRENT_BINDING" 3>&1 1>&2 2>&3)
+                NEW_BINDING=$(select_or_input_binding "$CURRENT_BINDING")
                 if [ -n "$NEW_BINDING" ]; then
                     gsettings set "$CUSTOM_SCHEMA:$FOUND_PATH" binding "$NEW_BINDING"
                     whiptail --msgbox "✅ Raccourci mis à jour avec succès ($NEW_BINDING) !" 8 50
                 fi
                 ;;
             2)
+                if command -v gnome-control-center &>/dev/null; then
+                    gnome-control-center keyboard &>/dev/null &
+                    whiptail --msgbox "⚙️ L'application Paramètres > Clavier a été ouverte dans votre environnement de bureau." 9 65
+                else
+                    whiptail --msgbox "Impossible de lancer automatiquement le panneau Paramètres." 8 55
+                fi
+                ;;
+            3)
                 NEW_LIST=$(echo "$EXISTING" | sed "s|'$FOUND_PATH', ||; s|, '$FOUND_PATH'||; s|'$FOUND_PATH'||")
                 if [ "$NEW_LIST" = "[]" ] || [ "$NEW_LIST" = "@as []" ]; then
                     gsettings set $SCHEMA custom-keybindings "[]"
@@ -136,27 +175,44 @@ manage_shortcut() {
                 ;;
         esac
     else
-        BINDING=$(whiptail --title "Configurer Raccourci Clavier" --inputbox "Entrez la combinaison de touches (ex: <Super><Shift>s, <Primary>Escape) :" 10 65 "<Super><Shift>s" 3>&1 1>&2 2>&3)
-        if [ -n "$BINDING" ]; then
-            IDX=0
-            while echo "$EXISTING" | grep -q "/custom$IDX/"; do
-                IDX=$((IDX + 1))
-            done
-            NEW_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom$IDX/"
-            
-            gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" name 'Lire la sélection (Piper TTS)'
-            gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" command "$READ_SCRIPT"
-            gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" binding "$BINDING"
-            
-            if [ "$EXISTING" = "@as []" ] || [ "$EXISTING" = "[]" ]; then
-                gsettings set $SCHEMA custom-keybindings "['$NEW_PATH']"
-            else
-                UPDATED=$(echo "$EXISTING" | sed "s|\]|, '$NEW_PATH']|")
-                gsettings set $SCHEMA custom-keybindings "$UPDATED"
-            fi
-            
-            whiptail --msgbox "✅ Raccourci configuré et activé avec succès ($BINDING) !" 8 55
-        fi
+        ACTION=$(whiptail --title "Configurer Raccourci Clavier" --menu "Aucun raccourci global n'est actuellement configuré pour Piper." 16 75 3 \
+            "1" "Choisir une combinaison (Presets ou Saisie)" \
+            "2" "Ouvrir les Paramètres Système de Zorin/GNOME (GUI)" \
+            "3" "Retour" 3>&1 1>&2 2>&3)
+        
+        case $ACTION in
+            1)
+                BINDING=$(select_or_input_binding "<Super><Shift>s")
+                if [ -n "$BINDING" ]; then
+                    IDX=0
+                    while echo "$EXISTING" | grep -q "/custom$IDX/"; do
+                        IDX=$((IDX + 1))
+                    done
+                    NEW_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom$IDX/"
+                    
+                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" name 'Lire la sélection (Piper TTS)'
+                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" command "$READ_SCRIPT"
+                    gsettings set "$CUSTOM_SCHEMA:$NEW_PATH" binding "$BINDING"
+                    
+                    if [ "$EXISTING" = "@as []" ] || [ "$EXISTING" = "[]" ]; then
+                        gsettings set $SCHEMA custom-keybindings "['$NEW_PATH']"
+                    else
+                        UPDATED=$(echo "$EXISTING" | sed "s|\]|, '$NEW_PATH']|")
+                        gsettings set $SCHEMA custom-keybindings "$UPDATED"
+                    fi
+                    
+                    whiptail --msgbox "✅ Raccourci configuré et activé avec succès ($BINDING) !" 8 55
+                fi
+                ;;
+            2)
+                if command -v gnome-control-center &>/dev/null; then
+                    gnome-control-center keyboard &>/dev/null &
+                    whiptail --msgbox "⚙️ L'application Paramètres > Clavier a été ouverte dans votre environnement de bureau.\n\nVous pouvez y ajouter un raccourci personnalisé pointant vers :\n$READ_SCRIPT" 12 70
+                else
+                    whiptail --msgbox "Impossible de lancer automatiquement le panneau Paramètres." 8 55
+                fi
+                ;;
+        esac
     fi
 }
 
