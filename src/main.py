@@ -78,6 +78,7 @@ class CatalogueScreen(Static):
     def compose(self) -> ComposeResult:
         yield Label(_("catalogue_title"), id="catalogue-title")
         yield Label(_("catalogue_loading"), id="catalogue-loading")
+        yield Input(placeholder="Rechercher une voix (ex: FR, Amy)...", id="search-bar", classes="hidden")
         yield ListView(id="catalogue-list", classes="hidden")
         yield Vertical(
             Label(_("downloading"), id="dl-label"),
@@ -88,22 +89,29 @@ class CatalogueScreen(Static):
 
     async def on_mount(self) -> None:
         logging.info("Récupération du catalogue HuggingFace.")
-        self.voices = await HuggingFaceAPI.fetch_french_voices()
+        self.voices = await HuggingFaceAPI.fetch_catalog_voices()
         
         loading_label = self.query_one("#catalogue-loading", Label)
         list_view = self.query_one("#catalogue-list", ListView)
+        search_bar = self.query_one("#search-bar", Input)
         
         loading_label.display = False
-        list_view.remove_class("hidden")
         
         if not self.voices:
+            list_view.remove_class("hidden")
             logging.error("Aucune voix trouvée ou erreur réseau.")
             list_view.append(ListItem(Label(_("err_network"))))
             return
             
+        search_bar.remove_class("hidden")
+        list_view.remove_class("hidden")
         self.refresh_list()
         
-    def refresh_list(self) -> None:
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "search-bar":
+            self.refresh_list(event.value)
+            
+    def refresh_list(self, filter_text: str = "") -> None:
         list_view = self.query_one("#catalogue-list", ListView)
         list_view.clear()
         
@@ -111,7 +119,13 @@ class CatalogueScreen(Static):
         conf = piper_engine.get_current_config()
         active_file = conf.get("VOICE_FILE", "")
         
+        filter_text = filter_text.lower()
+        
         for voice in self.voices:
+            # Filtre de recherche
+            if filter_text and filter_text not in voice['name'].lower() and filter_text not in voice['key'].lower():
+                continue
+                
             filename = voice['file_path'].split('/')[-1]
             status = ""
             if active_file.endswith(filename):

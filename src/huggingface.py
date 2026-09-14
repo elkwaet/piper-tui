@@ -6,8 +6,8 @@ class HuggingFaceAPI:
     DOWNLOAD_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/{}"
 
     @classmethod
-    async def fetch_french_voices(cls):
-        """Récupère dynamiquement toutes les voix françaises disponibles."""
+    async def fetch_catalog_voices(cls):
+        """Récupère dynamiquement les voix (FR et EN) disponibles."""
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(cls.BASE_URL)
@@ -17,27 +17,25 @@ class HuggingFaceAPI:
                 # Fallback on network error
                 return []
         
-        french_voices = []
+        catalog_voices = []
         for voice_key, voice_data in data.items():
             lang = voice_data.get("language", {}).get("family")
-            if lang == "fr":
-                # Cherche le fichier ONNX
+            if lang in ["fr", "en"]:
                 onnx_file = next((f for f in voice_data.get("files", {}).keys() if f.endswith(".onnx")), None)
                 if not onnx_file:
                     continue
                 
                 name = voice_data.get("name", "Inconnu").capitalize()
                 quality = voice_data.get("quality", "inconnue")
+                code = voice_data.get("language", {}).get("code", lang).replace("_", "-").upper()
                 
-                # Le taux d'échantillonnage dépend souvent de la qualité dans les modèles rhasspy, 
-                # mais le plus sûr est de l'extraire du fichier JSON de config du modèle (souvent 22050 ou 16000).
-                # Pour l'UI, on liste juste les options.
-                
-                french_voices.append({
+                catalog_voices.append({
                     "key": voice_key,
-                    "name": f"{name} ({quality})",
+                    "name": f"[{code}] {name} ({quality})",
                     "file_path": onnx_file,
                     "download_url": cls.DOWNLOAD_URL.format(onnx_file),
                     "json_url": cls.DOWNLOAD_URL.format(onnx_file + ".json")
                 })
-        return french_voices
+                
+        catalog_voices.sort(key=lambda x: x["name"])
+        return catalog_voices
