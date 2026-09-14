@@ -1,0 +1,48 @@
+#!/bin/bash
+set -e
+
+# Configuration des répertoires (support des symlinks)
+APP_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+CONFIG_DIR="$HOME/.config/piper-tui"
+VENV_DIR="$CONFIG_DIR/venv"
+REQ_FILE="$APP_DIR/requirements.txt"
+
+# Création du dossier de config s'il n'existe pas
+mkdir -p "$CONFIG_DIR"
+
+# Fonction d'initialisation de l'environnement virtuel
+init_venv() {
+    echo "================================================="
+    echo "🐍 Initialisation de l'environnement Python..."
+    echo "================================================="
+    
+    if ! command -v python3 &> /dev/null; then
+        echo "❌ Erreur : python3 n'est pas installé sur votre système."
+        exit 1
+    fi
+
+    # Création du venv
+    python3 -m venv "$VENV_DIR"
+    
+    # Installation des dépendances
+    echo "📦 Installation des dépendances (Textual, httpx)..."
+    "$VENV_DIR/bin/pip" install --upgrade pip -q
+    "$VENV_DIR/bin/pip" install -r "$REQ_FILE" -q
+    
+    echo "✅ Environnement virtuel prêt !"
+    sleep 1
+}
+
+# Vérification du venv et des dépendances
+if [ ! -d "$VENV_DIR" ]; then
+    init_venv
+else
+    # Simple vérification si textual est installé, sinon réinstalle
+    if ! "$VENV_DIR/bin/python" -c "import textual" &> /dev/null; then
+        init_venv
+    fi
+fi
+
+# Lancement de l'application Textual
+export PYTHONPATH="$APP_DIR/src:$PYTHONPATH"
+exec "$VENV_DIR/bin/python" "$APP_DIR/src/main.py"

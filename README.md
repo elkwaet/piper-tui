@@ -1,49 +1,49 @@
 # Piper TUI
 
-A lightweight, terminal-based User Interface (TUI) for managing [Piper TTS](https://github.com/rhasspy/piper) on Linux.
+![Screenshot](assets/piper-tui-zero.png)
+
+A modern, terminal-based User Interface (TUI) for managing [Piper TTS](https://github.com/rhasspy/piper) on Linux.
 
 ## Features
-- Minimalist terminal UI powered by `whiptail`.
+- **Dual Mode Architecture**: 
+  - `piper-tui`: A rich, asynchronous, Python-powered TUI (using the `textual` framework) for a modern experience.
+  - `piper-tui-lite`: A minimalist, legacy bash version powered by `whiptail` for environments with strict dependency constraints.
 - Automatically installs the Piper Text-to-Speech engine.
-- Browse, download, and switch between high-quality French voice models.
+- Browse, download, and switch between high-quality French voice models natively via the HuggingFace API.
 - Generates a `read-selection.sh` script to dictate selected text from any app.
-- **Global Keyboard Shortcut Manager**: Configure, update, or remove your global shortcut directly from the TUI (GNOME, Zorin OS, Ubuntu).
+- **Global Keyboard Shortcut Manager**: Configure, update, or remove your global shortcut directly from the TUI (Supports GNOME, Cinnamon, MATE, XFCE, KDE, LXQt).
 
 ## Requirements
-- `whiptail`
 - `wget`
 - `xsel` (for X11) or `wl-clipboard` (for Wayland)
 - `alsa-utils` (for audio playback)
-- `gsettings` (for automated shortcut integration on GNOME/Zorin)
+- `python3` (for the main `piper-tui` app)
+- `whiptail` (only if you use `piper-tui-lite`)
 
 ## Installation & Usage
 
 ```bash
-# Clone this repository (or download the script)
-git clone https://github.com/YOUR_GITHUB/piper-tui.git
+# Clone this repository (or download the source)
+git clone https://github.com/elkwaet/piper-tui.git
 cd piper-tui/package
 
-# Make the script executable
-chmod +x piper-tui.sh
+# Install globally (creates symlinks in ~/.local/bin)
+./install.sh
 
-# Run the TUI
-./piper-tui.sh
+# You can now run the modern Python TUI from anywhere
+
+# To uninstall
+./uninstall.sh (automatically setups a venv)
+./piper-tui
+
+# OR run the lightweight bash version
+./piper-tui-lite
 ```
 
-## Global Keyboard Shortcut Setup
+> **Note:** For advanced shortcut configuration and Window Managers setup, please consult the [WIKI](WIKI.md).
 
-You can configure the global shortcut directly via **Option 4** in the TUI menu.
+## Authors
+- **elkwaet** - *Initial work* - [elkwaet](https://github.com/elkwaet)
 
-Alternatively, for manual setup:
-1. Open your system **Settings** > **Keyboard** > **Custom Shortcuts**.
-2. Add a new shortcut:
-   - **Name:** Read Selection (Piper)
-   - **Command:** `/home/YOUR_USERNAME/.piper/read-selection.sh` *(replace `YOUR_USERNAME` with your actual Linux username)*
-   - **Shortcut:** `Super + Shift + S` (or any combination you prefer)
-3. Select any text on your screen (browser, document, terminal) and press your shortcut to hear it!
-
-## Configuration
-
-Settings are saved in `~/.config/piper-tui/config.env`.
-Voices are stored in `~/.piper/voices/`.
- 
+## Licence
+This project is licensed under the MIT License.
