@@ -2,7 +2,7 @@
 
 ![Screenshot](assets/piper-tui-zero.png)
 
-Une interface moderne en terminal (TUI) pour gérer [Piper TTS](https://github.com/rhasspy/piper) sous Linux.
+Une interface moderne en terminal (TUI) pour gérer [Piper TTS](https://github.com/rhasspy/piper) sous Linux. Ce petit outil permet aux utilisateurs de lire à voix haute n'importe quelle sélection de texte, grâce à un raccourci clavier que vous aurez défini. Vous pouvez lire à voix haute n'importe quelle sélection de texte dans les interfaces de divers applis (navigateur, terminal, IDE, lecteur de documents, suites bureautiques).
 
 ## Fonctionnalités
 - **Architecture Dual Mode** : 

@@ -2,7 +2,7 @@
 
 ![Screenshot](assets/piper-tui-zero.png)
 
-A modern, terminal-based User Interface (TUI) for managing [Piper TTS](https://github.com/rhasspy/piper) on Linux.
+A modern, terminal-based User Interface (TUI) for managing [Piper TTS](https://github.com/rhasspy/piper) on Linux. This little tool allows users to read any selected text aloud using a keyboard shortcut that you define. You can read aloud any selected text in UI of various apps (web browsers, terminals, IDEs, document readers, and office suites) of your Linux Desktop.
 
 ## Features
 - **Dual Mode Architecture**: 
@@ -31,10 +31,11 @@ cd piper-tui/package
 ./install.sh
 
 # You can now run the modern Python TUI from anywhere
+./piper-tui
 
 # To uninstall
 ./uninstall.sh (automatically setups a venv)
-./piper-tui
+
 
 # OR run the lightweight bash version
 ./piper-tui-lite
@@ -43,7 +44,7 @@ cd piper-tui/package
 > **Note:** For advanced shortcut configuration and Window Managers setup, please consult the [WIKI](WIKI.md).
 
 ## Authors
-- **elkwaet** - *Initial work* - [elkwaet](https://github.com/elkwaet)
+- **elkwaet** - *Initial work* - [elkwaet](https://gitlab.com/elkwaet)
 
 ## Licence
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
