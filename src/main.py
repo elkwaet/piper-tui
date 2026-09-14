@@ -64,8 +64,9 @@ class WelcomeScreen(Static):
     def refresh_config(self) -> None:
         conf = piper_engine.get_current_config()
         est_installe = piper_engine.is_engine_installed()
-        moteur_ok = "✅ Installé" if est_installe else "❌ Non installé"
-        txt = f"- Voix active : {conf.get('ACTIVE_VOICE', 'Aucune')}\n- Moteur : {moteur_ok}\n- Raccourci : (Voir section raccourci)"
+        moteur_ok = _("engine_installed") if est_installe else _("engine_not_installed")
+        v_act = conf.get("ACTIVE_VOICE") or _("voice_none")
+        txt = f"{_('status_active_voice')}{v_act}\n{_('status_engine')}{moteur_ok}\n{_('status_shortcut')}"
         self.query_one("#config-status", Label).update(txt)
         
         try:
@@ -78,7 +79,7 @@ class CatalogueScreen(Static):
     def compose(self) -> ComposeResult:
         yield Label(_("catalogue_title"), id="catalogue-title")
         yield Label(_("catalogue_loading"), id="catalogue-loading")
-        yield Input(placeholder="Rechercher une voix (ex: FR, Amy)...", id="search-bar", classes="hidden")
+        yield Input(placeholder=_("search_placeholder"), id="search-bar", classes="hidden")
         yield ListView(id="catalogue-list", classes="hidden")
         yield Vertical(
             Label(_("downloading"), id="dl-label"),
@@ -129,9 +130,9 @@ class CatalogueScreen(Static):
             filename = voice['file_path'].split('/')[-1]
             status = ""
             if active_file.endswith(filename):
-                status = " 🟢 [Active]"
+                status = _("status_tag_active")
             elif filename in installed_files:
-                status = " ✔️ [Installée]"
+                status = _("status_tag_installed")
                 
             list_item = ListItem(Label(f"🎙️ {voice['name']} - {voice['key']}{status}"))
             list_item.voice_data = voice
@@ -152,16 +153,16 @@ class CatalogueScreen(Static):
                     piper_engine.save_active_voice(voice["name"], str(piper_engine.VOICES_DIR / filename))
                     self.app.query_one("#view-welcome").refresh_config()
                     self.refresh_list()
-                    self.notify(f"Voix {voice['name']} activée !")
+                    self.notify(_("voice_activated").format(voice["name"]))
                 elif action == "btn_modal_delete":
                     piper_engine.delete_voice(filename)
                     # Si c'était la voix active, on la désactive de l'affichage
                     conf = piper_engine.get_current_config()
                     if conf.get("VOICE_FILE", "").endswith(filename):
-                        piper_engine.save_active_voice("Aucune", "")
+                        piper_engine.save_active_voice(_("voice_none"), "")
                     self.app.query_one("#view-welcome").refresh_config()
                     self.refresh_list()
-                    self.notify(f"Voix {voice['name']} désinstallée.", severity="warning")
+                    self.notify(_("voice_deleted").format(voice["name"]), severity="warning")
                     
             self.app.push_screen(VoiceActionModal(voice), handle_modal_result)
             return
@@ -171,7 +172,7 @@ class CatalogueScreen(Static):
         dl_container = self.query_one("#dl-container")
         dl_container.remove_class("hidden")
         dl_label = self.query_one("#dl-label")
-        dl_label.update(f"Téléchargement de {voice['name']}...")
+        dl_label.update(_("dl_voice").format(voice["name"]))
         pb = self.query_one("#dl-progress")
         pb.progress = 0
         
@@ -187,10 +188,10 @@ class CatalogueScreen(Static):
         logging.info(f"Début du téléchargement de la voix {voice['name']}")
         try:
             await piper_engine.download_voice(voice, update_progress)
-            dl_label.update(f"✅ Voix {voice['name']} installée et activée !")
+            dl_label.update(_("dl_voice_ok").format(voice["name"]))
             logging.info(f"Voix {voice['name']} installée avec succès.")
         except Exception as e:
-            dl_label.update(f"❌ Erreur: {e}")
+            dl_label.update(_("dl_voice_err").format(e))
             logging.error(f"Erreur pendant le téléchargement de la voix {voice['name']}: {e}", exc_info=True)
             
         self.app.query_one("#view-welcome").refresh_config()
@@ -263,9 +264,9 @@ class ShortcutScreen(Static):
                     subprocess.run(["xclip", "-selection", "clipboard"], input=cmd.encode())
                     self.notify(_("msg_copied"), title="Succès")
                 else:
-                    self.notify("wl-copy, xsel ou xclip introuvables. Copiez le texte manuellement.", severity="warning")
+                    self.notify(_("copy_err_tools"), severity="warning")
             except Exception as e:
-                self.notify(f"Erreur lors de la copie: {e}", severity="error")
+                self.notify(_("copy_err").format(e), severity="error")
 
 class PiperTuiApp(App):
     """Application principale Textual."""
@@ -297,8 +298,8 @@ class PiperTuiApp(App):
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quitter", show=True),
-        Binding("d", "toggle_dark", "Mode Sombre", show=True),
+        Binding("q", "quit", _("bind_quit"), show=True),
+        Binding("d", "toggle_dark", _("bind_theme"), show=True),
     ]
 
     def compose(self) -> ComposeResult:
@@ -338,7 +339,7 @@ class PiperTuiApp(App):
             self.switch_view("view-catalogue")
         elif button_id == "btn_engine":
             if piper_engine.is_engine_installed():
-                self.notify("Le moteur est déjà installé !", title="Info")
+                self.notify(_("engine_already_installed"), title=_("info_title"))
                 return
                 
             self.switch_view("view-engine")
@@ -352,7 +353,7 @@ class PiperTuiApp(App):
                     pb.update(total=total, progress=downloaded)
                     
             await piper_engine.download_engine(update_progress)
-            self.query_one("#engine-dl-label").update("✅ Moteur Piper installé avec succès !")
+            self.query_one("#engine-dl-label", Label).update(_("engine_dl_ok"))
             self.query_one("#view-welcome").refresh_config()
             await asyncio.sleep(2)
             self.switch_view("view-welcome")
