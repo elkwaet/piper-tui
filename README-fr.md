@@ -31,16 +31,17 @@ cd piper-tui/package
 ./install.sh
 
 # Vous pouvez maintenant lancer la version Python moderne de n'importe où
+./piper-tui
 
 # Pour désinstaller
-./uninstall.sh (création automatique du venv)
-./piper-tui
+./uninstall.sh ('création automatique du venv')
+
 
 # OU lancer la version bash allégée
 ./piper-tui-lite
 ```
 
-> **Note :** Pour la configuration manuelle des raccourcis claviers et l'intégration dans les Window Managers (i3, sway, bspwm...), veuillez consulter le [WIKI](WIKI.md).
+> **Note :** Pour la configuration manuelle des raccourcis claviers et l'intégration dans les Window Managers (i3, sway, bspwm...), veuillez consulter le [WIKI](WIKI.md) , anglais seulement.
 
 ## Fichiers de configuration
 
@@ -48,7 +49,7 @@ Les paramètres sont sauvegardés dans `~/.config/piper-tui/config.env`.
 Les voix téléchargées sont stockées dans `~/.piper/voices/`.
 
 ## Auteurs
-- **elkwaet** - *Développement initial* - [elkwaet](https://github.com/elkwaet)
+- **elkwaet** - *Développement initial* - [elkwaet](https://gitlab.com/elkwaet)
 
 ## Licence
-Ce projet est sous licence MIT.
+Ce projet est sous  [Licence MIT](LICENSE).
