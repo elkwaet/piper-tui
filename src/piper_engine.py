@@ -125,8 +125,10 @@ else
 fi
 
 if [ ! -z "$TEXT" ]; then
-    if pkill -x piper ; then
-        pkill -f "[w]idget.py" || true
+    if pgrep -x piper > /dev/null ; then
+        pkill -9 -x piper || true
+        pkill -9 -x aplay || true
+        pkill -9 -f "[w]idget.py" || true
         exit 0
     fi
     echo "$TEXT" | {ENGINE_BIN} \
