@@ -46,11 +46,16 @@ fi
 
 if [ ! -z "\$TEXT" ]; then
     if pkill -f "piper/piper" ; then
+        pkill -f "widget.py" || true
         exit 0
     fi
     echo "\$TEXT" | $PIPER_DIR/piper/piper \\
         --model $VOICE_FILE \\
-        --output_raw | aplay -r $SAMPLE_RATE -f S16_LE -t raw
+        --output_raw | aplay -r $SAMPLE_RATE -f S16_LE -t raw &
+    
+    if [ -f "$HOME/.config/piper-tui/venv/bin/python" ] && [ -f "$APP_DIR/src/widget.py" ]; then
+        "$HOME/.config/piper-tui/venv/bin/python" "$APP_DIR/src/widget.py" &
+    fi
 fi
 EOF
     chmod +x "$READ_SCRIPT"
@@ -412,7 +417,11 @@ while true; do
             if [ ! -f "$VOICE_FILE" ] || [ ! -f "$PIPER_DIR/piper/piper" ]; then
                 whiptail --msgbox "$MSG_ERR_NO_VOICE" 8 50
             else
-                echo "$MSG_TEST_AUDIO" | $PIPER_DIR/piper/piper --model "$VOICE_FILE" --output_raw | aplay -r $SAMPLE_RATE -f S16_LE -t raw &> /dev/null
+                echo "$MSG_TEST_AUDIO" | $PIPER_DIR/piper/piper --model "$VOICE_FILE" --output_raw | aplay -r $SAMPLE_RATE -f S16_LE -t raw &
+    
+    if [ -f "$HOME/.config/piper-tui/venv/bin/python" ] && [ -f "$APP_DIR/src/widget.py" ]; then
+        "$HOME/.config/piper-tui/venv/bin/python" "$APP_DIR/src/widget.py" &
+    fi &> /dev/null
             fi
             ;;
         4)
@@ -420,11 +429,13 @@ while true; do
             ;;
         5)
             clear
-            exit 0
+            pkill -f "widget.py" || true
+        exit 0
             ;;
         *)
             clear
-            exit 0
+            pkill -f "widget.py" || true
+        exit 0
             ;;
     esac
 done

@@ -112,6 +112,11 @@ def delete_voice(filename: str):
         json_f.unlink()
 
 def update_read_script(voice_file_path, sample_rate):
+    import os
+    from pathlib import Path
+    app_dir = Path(__file__).resolve().parent.parent
+    widget_path = app_dir / "src" / "widget.py"
+    
     script_content = f"""#!/bin/bash
 if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
     TEXT=$(wl-paste --primary)
@@ -121,11 +126,18 @@ fi
 
 if [ ! -z "$TEXT" ]; then
     if pkill -f "piper/piper" ; then
+        pkill -f "widget.py" || true
         exit 0
     fi
-    echo "$TEXT" | {ENGINE_BIN} \\
-        --model "{voice_file_path}" \\
-        --output_raw | aplay -r {sample_rate} -f S16_LE -t raw
+    echo "$TEXT" | {ENGINE_BIN} \
+        --model "{voice_file_path}" \
+        --output_raw | aplay -r {sample_rate} -f S16_LE -t raw &
+        
+    VENV_PYTHON="$HOME/.config/piper-tui/venv/bin/python"
+    WIDGET_PATH="{widget_path}"
+    if [ -f "$VENV_PYTHON" ] && [ -f "$WIDGET_PATH" ]; then
+        "$VENV_PYTHON" "$WIDGET_PATH" &
+    fi
 fi
 """
     with open(READ_SCRIPT, "w") as f:
