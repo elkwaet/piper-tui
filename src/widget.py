@@ -70,26 +70,26 @@ class FloatingWidget:
         
     def toggle_pause(self):
         if not self.is_paused:
-            subprocess.run("pkill -STOP -f 'piper/piper'", shell=True)
-            subprocess.run("pkill -STOP -f 'aplay -r'", shell=True)
+            subprocess.run("pkill -STOP -x piper", shell=True)
+            subprocess.run("pkill -STOP -x aplay", shell=True)
             self.btn_play_pause.config(text="▶")
             self.is_paused = True
         else:
-            subprocess.run("pkill -CONT -f 'piper/piper'", shell=True)
-            subprocess.run("pkill -CONT -f 'aplay -r'", shell=True)
+            subprocess.run("pkill -CONT -x piper", shell=True)
+            subprocess.run("pkill -CONT -x aplay", shell=True)
             self.btn_play_pause.config(text="⏸")
             self.is_paused = False
             
     def stop_playback(self):
-        subprocess.run("pkill -TERM -f 'piper/piper'", shell=True)
-        subprocess.run("pkill -TERM -f 'aplay -r'", shell=True)
+        subprocess.run("pkill -TERM -x piper", shell=True)
+        subprocess.run("pkill -TERM -x aplay", shell=True)
         self.root.destroy()
         
     def check_process(self):
         # Poll every 1 second: if both piper and aplay are dead, close widget automatically
         # For short texts, piper finishes quickly but aplay continues playing the buffer.
-        res_aplay = subprocess.run("pgrep -f 'aplay -r'", shell=True, capture_output=True)
-        res_piper = subprocess.run("pgrep -f 'piper/piper'", shell=True, capture_output=True)
+        res_aplay = subprocess.run("pgrep -x aplay", shell=True, capture_output=True)
+        res_piper = subprocess.run("pgrep -x piper", shell=True, capture_output=True)
         if not res_aplay.stdout.strip() and not res_piper.stdout.strip():
             self.root.destroy()
         else:

@@ -125,8 +125,8 @@ else
 fi
 
 if [ ! -z "$TEXT" ]; then
-    if pkill -f "piper/piper" ; then
-        pkill -f "widget.py" || true
+    if pkill -x piper ; then
+        pkill -f "[w]idget.py" || true
         exit 0
     fi
     echo "$TEXT" | {ENGINE_BIN} \
