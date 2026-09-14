@@ -86,9 +86,11 @@ class FloatingWidget:
         self.root.destroy()
         
     def check_process(self):
-        # Poll every 1 second: if piper process is dead, close widget automatically
-        res = subprocess.run("pgrep -f 'piper/piper'", shell=True, capture_output=True)
-        if not res.stdout.strip():
+        # Poll every 1 second: if both piper and aplay are dead, close widget automatically
+        # For short texts, piper finishes quickly but aplay continues playing the buffer.
+        res_aplay = subprocess.run("pgrep -f 'aplay -r'", shell=True, capture_output=True)
+        res_piper = subprocess.run("pgrep -f 'piper/piper'", shell=True, capture_output=True)
+        if not res_aplay.stdout.strip() and not res_piper.stdout.strip():
             self.root.destroy()
         else:
             self.root.after(1000, self.check_process)
