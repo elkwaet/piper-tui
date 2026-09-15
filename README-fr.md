@@ -36,6 +36,7 @@ Exécutez notre script d'installation automatisé :
 ```bash
 curl -sSL https://raw.githubusercontent.com/elkwaet/piper-tui/main/net-install.sh | bash
 ```
+> **Astuce :** Une fois l'installation terminée, redémarrez votre terminal (ou tapez `source ~/.bashrc` / `source ~/.zshrc`), puis lancez `piper-tui`.
 
 ### 2. Téléchargement manuel de l'archive (.tar.gz)
 Pour les utilisateurs préférant ne pas rediriger directement un script distant dans bash :
