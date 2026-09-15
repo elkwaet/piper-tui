@@ -19,14 +19,30 @@ class FloatingWidget:
         self.root = root
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.configure(bg=BG_COLOR, highlightthickness=1, highlightbackground="#444444")
+        self.root.configure(bg="#222222", highlightthickness=1, highlightbackground="#555555")
         
-        # Position bottom center
+        # Geometry
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
-        w, h = 100, 40
+        w, h = 110, 48
+        
+        # Default position (bottom center)
         x = (screen_width // 2) - (w // 2)
         y = screen_height - h - 60
+        
+        # Load saved position if exists
+        try:
+            from pathlib import Path
+            self.pos_file = Path.home() / ".config" / "piper-tui" / "widget_pos.txt"
+            if self.pos_file.exists():
+                with open(self.pos_file, "r") as f:
+                    pos = f.read().strip()
+                    if "+" in pos:
+                        saved_x, saved_y = pos.split("+")
+                        x, y = int(saved_x), int(saved_y)
+        except Exception:
+            pass
+
         self.root.geometry(f"{w}x{h}+{x}+{y}")
         
         # State
@@ -37,24 +53,30 @@ class FloatingWidget:
         self._offsety = 0
         self.root.bind('<Button-1>', self.clickwin)
         self.root.bind('<B1-Motion>', self.dragwin)
+        self.root.bind('<ButtonRelease-1>', self.save_position)
         
-        # UI
-        self.frame = tk.Frame(self.root, bg=BG_COLOR)
+        # UI (Frame acts as the "grip" border)
+        self.frame = tk.Frame(self.root, bg="#222222", cursor="fleur")
         self.frame.pack(expand=True, fill="both")
+        
+        # Binding drag directly on the frame too, for better UX
+        self.frame.bind('<Button-1>', self.clickwin)
+        self.frame.bind('<B1-Motion>', self.dragwin)
+        self.frame.bind('<ButtonRelease-1>', self.save_position)
         
         self.btn_play_pause = tk.Button(
             self.frame, text="⏸", bg=BTN_BG, fg=FG_COLOR, 
             activebackground=BTN_ACTIVE_BG, borderwidth=0, 
             command=self.toggle_pause, font=("Arial", 16)
         )
-        self.btn_play_pause.pack(side="left", expand=True, fill="both", padx=(1, 0), pady=1)
+        self.btn_play_pause.pack(side="left", expand=True, fill="both", padx=(4, 2), pady=4)
         
         self.btn_stop = tk.Button(
             self.frame, text="⏹", bg=BTN_BG, fg=FG_COLOR, 
             activebackground=BTN_ACTIVE_BG, borderwidth=0, 
             command=self.stop_playback, font=("Arial", 16)
         )
-        self.btn_stop.pack(side="left", expand=True, fill="both", padx=(1, 1), pady=1)
+        self.btn_stop.pack(side="left", expand=True, fill="both", padx=(2, 4), pady=4)
         
         # Polling: check if piper is still running
         self.check_process()
@@ -67,6 +89,15 @@ class FloatingWidget:
         x = self.root.winfo_pointerx() - self._offsetx
         y = self.root.winfo_pointery() - self._offsety
         self.root.geometry(f"+{x}+{y}")
+        
+    def save_position(self, event):
+        try:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            with open(self.pos_file, "w") as f:
+                f.write(f"{x}+{y}")
+        except Exception:
+            pass
         
     def toggle_pause(self):
         if not self.is_paused:

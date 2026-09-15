@@ -26,7 +26,9 @@ MESSAGES = {
         "bind_quit": "Quit",
         "bind_theme": "Toggle Dark Mode",
         "info_title": "Info",
-        "search_placeholder": "Search voice (ex: FR, Amy)...",
+        "search_placeholder": "Search voice (ex: EN, ES, Amy)...",
+        "btn_show_all": "🌍 [+] All international languages...",
+        "filter_installed": "Installed only",
 
 
         "btn_home": "Home",
@@ -103,7 +105,9 @@ MESSAGES = {
         "bind_quit": "Quitter",
         "bind_theme": "Mode Sombre",
         "info_title": "Info",
-        "search_placeholder": "Rechercher une voix (ex: FR, Amy)...",
+        "search_placeholder": "Rechercher une voix (ex: FR, ES, Amy)...",
+        "btn_show_all": "🌍 [+] Toutes les langues internationales...",
+        "filter_installed": "Installées uniquement",
 
 
         "btn_home": "Accueil",

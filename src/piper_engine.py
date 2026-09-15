@@ -83,14 +83,23 @@ def save_active_voice(voice_name, voice_file_path):
     if "high" in voice_name.lower() or "medium" in voice_name.lower():
         sample_rate = 22050
         
-    config_content = f"""ACTIVE_VOICE="{voice_name}"
-VOICE_FILE="{voice_file_path}"
-SAMPLE_RATE={sample_rate}
-"""
+    conf = get_current_config()
+    conf["ACTIVE_VOICE"] = voice_name
+    conf["VOICE_FILE"] = voice_file_path
+    conf["SAMPLE_RATE"] = str(sample_rate)
+    
     with open(CONFIG_FILE, "w") as f:
-        f.write(config_content)
+        for k, v in conf.items():
+            f.write(f'{k}="{v}"\n')
         
     update_read_script(voice_file_path, sample_rate)
+
+def update_config_key(key, value):
+    conf = get_current_config()
+    conf[key] = str(value)
+    with open(CONFIG_FILE, "w") as f:
+        for k, v in conf.items():
+            f.write(f'{k}="{v}"\n')
 
 def get_installed_voices():
     """Retourne la liste des noms de fichiers (sans l'extension) des voix installées."""

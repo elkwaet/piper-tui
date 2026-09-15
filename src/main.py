@@ -1,6 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Header, Footer, Button, Static, Label, ListView, ListItem, LoadingIndicator, ProgressBar, Input
+from textual.widgets import Header, Footer, Button, Static, Label, ListView, ListItem, LoadingIndicator, ProgressBar, Input, Checkbox
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from huggingface import HuggingFaceAPI
@@ -79,7 +79,9 @@ class CatalogueScreen(Static):
     def compose(self) -> ComposeResult:
         yield Label(_("catalogue_title"), id="catalogue-title")
         yield Label(_("catalogue_loading"), id="catalogue-loading")
-        yield Input(placeholder=_("search_placeholder"), id="search-bar", classes="hidden")
+        with Horizontal(id="search-container", classes="hidden"):
+            yield Input(placeholder=_("search_placeholder"), id="search-bar")
+            yield Checkbox(_("filter_installed"), id="chk-installed")
         yield ListView(id="catalogue-list", classes="hidden")
         yield Vertical(
             Label(_("downloading"), id="dl-label"),
@@ -89,12 +91,13 @@ class CatalogueScreen(Static):
         )
 
     async def on_mount(self) -> None:
+        self.show_all_voices = False
         logging.info("Récupération du catalogue HuggingFace.")
         self.voices = await HuggingFaceAPI.fetch_catalog_voices()
         
         loading_label = self.query_one("#catalogue-loading", Label)
         list_view = self.query_one("#catalogue-list", ListView)
-        search_bar = self.query_one("#search-bar", Input)
+        search_container = self.query_one("#search-container")
         
         loading_label.display = False
         
@@ -104,13 +107,27 @@ class CatalogueScreen(Static):
             list_view.append(ListItem(Label(_("err_network"))))
             return
             
-        search_bar.remove_class("hidden")
+        search_container.remove_class("hidden")
         list_view.remove_class("hidden")
         self.refresh_list()
         
+
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "search-bar":
-            self.refresh_list(event.value)
+            try:
+                self._search_timer.stop()
+            except AttributeError:
+                pass
+            self._search_timer = self.set_timer(0.2, lambda: self.refresh_list(event.value))
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id == "chk-installed":
+            search_val = ""
+            try:
+                search_val = self.query_one("#search-bar", Input).value
+            except:
+                pass
+            self.refresh_list(search_val)
             
     def refresh_list(self, filter_text: str = "") -> None:
         list_view = self.query_one("#catalogue-list", ListView)
@@ -121,13 +138,32 @@ class CatalogueScreen(Static):
         active_file = conf.get("VOICE_FILE", "")
         
         filter_text = filter_text.lower()
+        has_hidden_voices = False
+        
+        filter_installed_only = False
+        try:
+            filter_installed_only = self.query_one("#chk-installed", Checkbox).value
+        except:
+            pass
         
         for voice in self.voices:
+            filename = voice['file_path'].split('/')[-1]
+            
+            # Filtre 'Installées uniquement'
+            if filter_installed_only and filename not in installed_files:
+                continue
+                
             # Filtre de recherche
             if filter_text and filter_text not in voice['name'].lower() and filter_text not in voice['key'].lower():
                 continue
                 
-            filename = voice['file_path'].split('/')[-1]
+            # Filtre "Progressive disclosure" si aucune recherche n'est active
+            if not filter_text and not getattr(self, "show_all_voices", False) and not filter_installed_only:
+                lang_code = voice.get("lang_code", "")
+                if not (lang_code.startswith("FR") or lang_code.startswith("EN")):
+                    has_hidden_voices = True
+                    continue
+                
             status = ""
             if active_file.endswith(filename):
                 status = _("status_tag_active")
@@ -138,7 +174,22 @@ class CatalogueScreen(Static):
             list_item.voice_data = voice
             list_view.append(list_item)
             
+        if has_hidden_voices:
+            expand_item = ListItem(Label(_("btn_show_all")))
+            expand_item.is_expand_button = True
+            list_view.append(expand_item)
+            
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if getattr(event.item, "is_expand_button", False):
+            self.show_all_voices = True
+            search_val = ""
+            try:
+                search_val = self.query_one("#search-bar", Input).value
+            except:
+                pass
+            self.refresh_list(search_val)
+            return
+
         if not hasattr(event.item, "voice_data"):
             return
             
@@ -280,6 +331,9 @@ class PiperTuiApp(App):
     #welcome-title, #catalogue-title, #shortcut-title, #engine-title { text-align: center; text-style: bold; color: $accent; padding: 1; }
     #welcome-subtitle { text-align: center; color: $text-muted; }
     .hidden { display: none; }
+    #search-container { height: auto; }
+    #search-bar { width: 1fr; }
+    #chk-installed { width: auto; margin-left: 1; }
     #catalogue-list { height: 1fr; border: solid $accent; margin-top: 1; }
     #dl-container { align: center middle; height: 1fr; }
     #shortcut-hint { margin-top: 1; margin-bottom: 1; }
@@ -375,6 +429,16 @@ class PiperTuiApp(App):
             
         elif button_id == "btn_shortcut":
             self.switch_view("view-shortcut")
+
+    def on_mount(self) -> None:
+        conf = piper_engine.get_current_config()
+        self.dark = conf.get("DARK_MODE", "true").lower() == "true"
+        self.switch_view("view-welcome")
+        
+    def action_toggle_dark(self) -> None:
+        """Surcharge l'action native pour sauvegarder le choix."""
+        self.dark = not self.dark
+        piper_engine.update_config_key("DARK_MODE", str(self.dark).lower())
 
 if __name__ == "__main__":
     app = PiperTuiApp()

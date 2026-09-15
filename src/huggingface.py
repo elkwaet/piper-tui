@@ -18,24 +18,39 @@ class HuggingFaceAPI:
                 return []
         
         catalog_voices = []
+        quality_map = {"high": 1, "medium": 2, "low": 3, "x-low": 4}
+
         for voice_key, voice_data in data.items():
-            lang = voice_data.get("language", {}).get("family")
-            if lang in ["fr", "en"]:
-                onnx_file = next((f for f in voice_data.get("files", {}).keys() if f.endswith(".onnx")), None)
-                if not onnx_file:
-                    continue
-                
-                name = voice_data.get("name", "Inconnu").capitalize()
-                quality = voice_data.get("quality", "inconnue")
-                code = voice_data.get("language", {}).get("code", lang).replace("_", "-").upper()
-                
-                catalog_voices.append({
-                    "key": voice_key,
-                    "name": f"[{code}] {name} ({quality})",
-                    "file_path": onnx_file,
-                    "download_url": cls.DOWNLOAD_URL.format(onnx_file),
-                    "json_url": cls.DOWNLOAD_URL.format(onnx_file + ".json")
-                })
-                
-        catalog_voices.sort(key=lambda x: x["name"])
+            lang_data = voice_data.get("language")
+            if not lang_data:
+                continue
+            
+            lang_code = lang_data.get("code") or lang_data.get("family")
+            if not lang_code:
+                continue
+
+            onnx_file = next((f for f in voice_data.get("files", {}).keys() if f.endswith(".onnx")), None)
+            if not onnx_file:
+                continue
+            
+            name = voice_data.get("name", "Inconnu").capitalize()
+            quality_raw = voice_data.get("quality", "inconnue")
+            code = lang_code.replace("_", "-").upper()
+            
+            catalog_voices.append({
+                "key": voice_key,
+                "name": f"[{code}] {name} ({quality_raw})",
+                "file_path": onnx_file,
+                "download_url": cls.DOWNLOAD_URL.format(onnx_file),
+                "json_url": cls.DOWNLOAD_URL.format(onnx_file + ".json"),
+                "lang_code": code,
+                "quality_raw": quality_raw,
+                "raw_name": name
+            })
+            
+        catalog_voices.sort(key=lambda x: (
+            x["lang_code"],
+            quality_map.get(x["quality_raw"], 99),
+            x["raw_name"]
+        ))
         return catalog_voices
